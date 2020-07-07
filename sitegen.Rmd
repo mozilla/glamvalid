@@ -1,0 +1,147 @@
+---
+title: "GLAM site generator"
+author: "Saptarshi Guha"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    levels: 5
+    number_sections: true
+    css: "/home/sguha/mz/style_one.css"
+    self_contained: no
+params:
+    f: 'none'
+---
+
+
+# Prep
+
+```{r }
+invisible(source("./libs.R"))
+```
+
+```{r echo=FALSE}
+
+process <- function(r1,clauz,os,channel, h,g){
+  L = list()
+  L$clauz = clauz
+  L$os=os
+  L$channel=channel
+  L$h = h
+  if(nrow(r1[[2]]) > 0){
+    L$hc2 = h.compute(tablename,H=h,g=g)
+    if(nrow(L$hc2)==0) {
+      L$hc2 = NULL
+      return(L)
+    }
+    hc2 = L$hc2
+    L$he = hc2[buildid==sample(buildid,1),]
+    L$hc2.m   =  h.summary(hc2, sm=list(t=mean))
+    L$hc2.q05 = h.summary(hc2, sm=list(t=function(x) quantile(x,0.05)))
+    L$hc2.q25 = h.summary(hc2, sm=list(t=function(x) quantile(x,0.25)))
+    L$hc2.q50 = h.summary(hc2, sm=list(t=function(x) quantile(x,0.50)))
+    L$hc2.q75 = h.summary(hc2, sm=list(t=function(x) quantile(x,0.75)))
+    L$hc2.q90 = h.summary(hc2, sm=list(t=function(x) quantile(x,0.90)))
+
+  }
+  L
+ }
+
+```
+
+# Histograms
+
+```{r echo=FALSE}
+if(!is.null(params$f) & params$f!='none')
+  load(params$f)
+os = k$os
+channel = k$channel
+clauz = k$clauz
+h = k$h
+h2 = Filter(function(l) grepl("histogram", l),strsplit(h, "[\n#,]+")[[1]])
+h2 = Map(function(x){
+    list(x, tail(strsplit(x,".",fixed=TRUE)[[1]],1))
+},h2)
+g = bq()
+#print(h2)
+```
+
+# Getting Data
+
+Query used to get data and sample data
+
+```{r getData,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
+options(width=300)
+r1=getData(vars= paste(Map(function(H){
+  sprintf("%s\n",glue("json_extract({H[1]},'$.values') as {H[2]}\n"))
+}, h2),collapse=","),where=clauz,g=g,table=tablename,debug=FALSE)
+print(r1[[1]])
+print(head(r1[[2]],3))
+```
+
+Query used to compute posterior density. The R code to compute mean/percentiles
+can be found in `h.compute` in the file `libs.R` 
+
+```{r processLoop,eval=TRUE,echo=FALSE,warning=FALSE, message=FALSE}
+r1s = Map(function(H,i) {
+process(r1,clauz,os,channel,h=H,g=g)
+}
+          ,h2,seq_along(h2))
+```
+
+# Client Counts by BuildID
+
+This might be slightly confusing for release channel
+
+```{r echo=TRUE}
+knitr::kable(g$q(glue("select buildid,count(distinct(id)) as n from {tablename} group by 1 order by buildid")))
+
+```
+
+
+```{r makeSections, echo=FALSE}
+
+ms = function(r1,i){
+temp = glue("
+# {r1$h[[2]]}
+
+\u0060\u0060\u0060{{r echo=FALSE}}
+Xr1 = r1s[[{i}]]
+\u0060\u0060\u0060
+## Histogram
+
+\u0060\u0060\u0060{{r echo=FALSE}}
+plotHistogram(Xr1$h[[2]], Xr1$he)
+\u0060\u0060\u0060
+
+## Plot of the Mean
+
+\u0060\u0060\u0060{{r echo=FALSE}}
+plotLineFigure(Xr1$h[[2]],Xr1$hc2.m, ytit='Mean')
+\u0060\u0060\u0060
+
+
+## Percentiles
+\u0060\u0060\u0060{{r echo=FALSE}}
+q25 = plotLineFigure(Xr1$h[[2]],Xr1$hc2.q25, ytit='Q25')
+q50 = plotLineFigure(Xr1$h[[2]],Xr1$hc2.q50, ytit='Q50')
+q75 = plotLineFigure(Xr1$h[[2]],Xr1$hc2.q75, ytit='Q75')
+q90 = plotLineFigure(Xr1$h[[2]],Xr1$hc2.q90, ytit='Q90')
+
+vl_vconcat(vl_hconcat(q25,q50),vl_hconcat(q75,q90))
+
+\u0060\u0060\u0060
+
+
+")
+if(!is.null(r1$hc2)) temp else glue("# {r1$h[[2]]}\n NOT PROCESSED")
+}
+
+str=paste(unlist(Map(function(r1,i) ms(r1,i),r1s,seq_along(r1s))),collapse="\n\n")
+writeLines(str,"/tmp/x.Rmd")
+
+
+```
+
+```{r child = '/tmp/x.Rmd'}
+```
