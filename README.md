@@ -9,7 +9,10 @@ dependencies). Once done,
 
 ```
 mkdir outputs
-docker run -it   -v ~/.config:/root/.config  --mount type=bind,source="$(pwd)"/outputs,target=/tmp/    -e OS=Windows_NT -e CHANNEL=nightly -e BUILD_START=20200615 -e BUILD_END=20200619        -e HISTOS="payload.histograms.fx_session_restore_file_size_bytes,payload.histograms.telemetry_compress,payload.histograms.cycle_collector_worker_visited_ref_counted" glamval
+docker run -it   -v ~/.config:/root/.config  --mount type=bind,source="$(pwd)"/outputs,target=/tmp/ \
+                -e OS=Windows_NT -e CHANNEL=nightly -e BUILD_START=20200615 -e BUILD_END=20200619   \
+                -e HISTOS="payload.histograms.fx_session_restore_file_size_bytes,payload.histograms.telemetry_compress,payload.histograms.cycle_collector_worker_visited_ref_counted" \
+                glamval
 ```
 
 - inspect `run.sh` to see environment variables, but in summary they are
