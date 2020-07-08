@@ -22,7 +22,9 @@ docker run -it   -v ~/.config:/root/.config  --mount type=bind,source="$(pwd)"/o
     for pre-release.
   - `DATE_START`,`DATE_END` for release channels. For pre-release, there isn't a
     need for this as it's computed from `BUILD_START` and `BUILD_END` variables.
-  - `HISTOS` is a comma separated fully qualified histograms name
+  - `HISTOS` is a comma separated fully qualified histograms name. If this is
+    blank then a mount a newline separated file of histogram names and mount it
+    to `/root/histo.txt` e.g. `-v path-to-your-histo.txt:/root/histo.txt`.
   - `MAJOR_VER` is optional, but you can specify something like 70 to restrict
     to major versions
 - the arg `--mount type=bind,source="$(pwd)"/outputs,target=/tmp/` will allow
